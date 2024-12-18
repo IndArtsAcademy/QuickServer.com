@@ -30,7 +30,18 @@ const saveData = (data) => {
 // 1. Add a new student
 app.post('/students', (req, res) => {
     const students = readData();
-    const newStudent = { id: Date.now(), ...req.body };
+    const newStudent = {
+        id: Date.now(),
+        name: req.body.name,
+        guardian_name: req.body['guardian-name'],
+        guardian_phone: req.body['guardian-phone'],
+        student_phone: req.body['student-phone'] || '',
+        dob: req.body.dob,
+        address: req.body.address,
+        class: req.body.class,
+        school: req.body.school,
+        version: req.body.version
+    };
     students.push(newStudent);
     saveData(students);
     res.status(201).json({ message: 'Student added successfully', student: newStudent });
