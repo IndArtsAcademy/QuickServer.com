@@ -1,39 +1,75 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const fs = require('fs');
-const path = require('path');
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(cors());
 
-// Serve static files (HTML, CSS, JS)
-app.use(express.static(path.join(__dirname, 'public')));
+// Path to the JSON file
+const DATA_FILE = './students.json';
 
-// Handle form submissions
-app.post('/submit-admission', (req, res) => {
-    const formData = req.body;
+// Helper function to read the student data
+const readData = () => {
+    if (!fs.existsSync(DATA_FILE)) return [];
+    const data = fs.readFileSync(DATA_FILE, 'utf8');
+    return JSON.parse(data || '[]');
+};
 
-    // Simple validation
-    if (!formData.name || !formData['guardian-name'] || !formData['guardian-phone'] || !formData.dob) {
-        return res.status(400).send({ message: 'All required fields must be filled.' });
-    }
+// Helper function to save student data
+const saveData = (data) => {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+};
 
-    // Save data to a file (can be replaced with database logic)
-    const dataPath = path.join(__dirname, 'data', 'admissions.json');
-    const admissionData = JSON.parse(fs.readFileSync(dataPath, 'utf8') || '[]');
-    admissionData.push(formData);
+// Routes
 
-    fs.writeFileSync(dataPath, JSON.stringify(admissionData, null, 2));
+// 1. Add a new student
+app.post('/students', (req, res) => {
+    const students = readData();
+    const newStudent = { id: Date.now(), ...req.body };
+    students.push(newStudent);
+    saveData(students);
+    res.status(201).json({ message: 'Student added successfully', student: newStudent });
+});
 
-    console.log('Admission Data Saved:', formData);
-    res.status(200).send({ message: 'Admission form submitted successfully!' });
+// 2. Get all students
+app.get('/students', (req, res) => {
+    const students = readData();
+    res.json(students);
+});
+
+// 3. Get a student by ID
+app.get('/students/:id', (req, res) => {
+    const students = readData();
+    const student = students.find(s => s.id === parseInt(req.params.id));
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    res.json(student);
+});
+
+// 4. Update a student by ID
+app.put('/students/:id', (req, res) => {
+    const students = readData();
+    const studentIndex = students.findIndex(s => s.id === parseInt(req.params.id));
+    if (studentIndex === -1) return res.status(404).json({ message: 'Student not found' });
+    students[studentIndex] = { ...students[studentIndex], ...req.body };
+    saveData(students);
+    res.json({ message: 'Student updated successfully', student: students[studentIndex] });
+});
+
+// 5. Delete a student by ID
+app.delete('/students/:id', (req, res) => {
+    const students = readData();
+    const updatedStudents = students.filter(s => s.id !== parseInt(req.params.id));
+    if (students.length === updatedStudents.length) return res.status(404).json({ message: 'Student not found' });
+    saveData(updatedStudents);
+    res.json({ message: 'Student deleted successfully' });
 });
 
 // Start the server
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
 });
